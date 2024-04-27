@@ -14,10 +14,11 @@ async function run() {
     const db = client.db('Library');
     const collection = db.collection('books');
 
-    // Query to get the ObjectIDs and titles of all documents
-    const cursor = collection.find({}, { projection: { _id: 1, title: 1 } });
+    // Query to get the ObjectIDs, titles, and thumbnails of all documents
+    // Include the thumbnail field in the projection
+    const cursor = collection.find({}, { projection: { _id: 1, title: 1, thumbnail: 1 } });
     const documents = await cursor.toArray();
-    console.log('ObjectIDs and titles of all documents:', documents);
+    console.log('ObjectIDs, titles, and thumbnails of all documents:', documents);
 
   } finally {
     // Ensures that the client will close when you finish/error

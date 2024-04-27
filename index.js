@@ -1,8 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const path = require("path");
-const fs = require('fs');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
@@ -15,10 +13,8 @@ const corsOption = {
 
 app.use(cors(corsOption));
 app.use(bodyParser.json());
-app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // MongoDB setup
-// const mongoUri = 'mongodb://localhost:27017'; 
 const mongoUri = 'mongodb+srv://Vivek:67NrptwoV6nRTXAx@library.nvvkq01.mongodb.net/';
 const client = new MongoClient(mongoUri);
 
@@ -34,27 +30,39 @@ async function connectDB() {
 connectDB();
 
 app.get("/", (req, res) => {
-    console.log("Request received");
     res.send({"success": "success"});
 });
 
-app.get('/api/books/images', (req, res) => {
-    const imagesDirectory = path.join(__dirname, 'images');
+app.get('/api/books/images', async (req, res) => {
+    try {
+        const db = client.db("Library");
+        const collection = db.collection("books");
 
-    fs.readdir(imagesDirectory, (err, files) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).json({ error: 'Server error reading image directory' });
+        // Query to fetch all thumbnails
+        const books = await collection.find({}, { projection: { thumbnail: 1, _id: 1 } }).toArray();
+
+        if (books.length === 0) {
+            return res.status(404).send("No images found.");
         }
 
-        const fileUrls = files.map(file => ({
-            url: `http://localhost:${PORT}/images/${file}`
-        }));
-    
-        res.json(fileUrls);
-    });
-});
+        // Send an array of data URIs
+        const images = books.map(book => {
+            if (book.thumbnail) {
+                return {
+                    id: book._id,
+                    dataUri: `data:image/jpeg;base64,${book.thumbnail}`
+                };
+            }
+            return { id: book._id, dataUri: null };
+        });
 
+        res.json(images);
+
+    } catch (error) {
+        console.error('Failed to fetch thumbnails:', error);
+        res.status(500).send('Failed to fetch thumbnails');
+    }
+});
 app.get('/api/books/pdf/:id', async (req, res) => {
     try {
         const db = client.db("Library");
@@ -78,8 +86,6 @@ app.get('/api/books/pdf/:id', async (req, res) => {
         res.status(500).send('Failed to fetch PDF');
     }
 });
-
-
 app.listen(PORT, () => {
     console.log(`Server is running on Port: ${PORT}`);
 });
